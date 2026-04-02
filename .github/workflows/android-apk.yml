@@ -28,6 +28,7 @@ env:
   ANDROID_BUILD_TOOLS: "35.0.0"
   ANDROID_NDK_VERSION: "27.2.12479018"
   ARTIFACT_RETENTION_DAYS: 30
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   build-debug-apk:
@@ -84,14 +85,83 @@ jobs:
           export ANDROID_NDK_HOME="$ANDROID_SDK_ROOT/ndk/${{ env.ANDROID_NDK_VERSION }}"
           ./scripts/android/build-android-bindings.sh
 
-      - name: Build Android debug APK
+      - name: Inspect generated Go bindings
+        run: |
+          set -euo pipefail
+          ls -lah android/app/libs
+          test -f android/app/libs/memosmobile.aar
+          jar tf android/app/libs/memosmobile.aar | sed -n '1,160p'
+
+      - name: Compile Android sources
         working-directory: android
-        run: ./gradlew --no-daemon --stacktrace --info assembleDebug
+        run: |
+          set -euo pipefail
+          mkdir -p ci-logs
+          log_file="ci-logs/compile-debug-kotlin.log"
+          if ! ./gradlew --no-daemon --console=plain --stacktrace --info :app:compileDebugKotlin 2>&1 | tee "$log_file"; then
+            summary="$(grep -E '^(e: |ERROR:|FAILURE:|\\* What went wrong:|Execution failed for task|Caused by:)' "$log_file" | tail -n 40 || true)"
+            if [ -z "$summary" ]; then
+              summary="$(tail -n 80 "$log_file")"
+            fi
+            summary="${summary//'%'/'%25'}"
+            summary="${summary//$'\n'/'%0A'}"
+            summary="${summary//$'\r'/'%0D'}"
+            echo "::error title=Compile Android sources failed::$summary"
+            exit 1
+          fi
+
+      - name: Process Android resources
+        working-directory: android
+        run: |
+          set -euo pipefail
+          mkdir -p ci-logs
+          log_file="ci-logs/process-debug-resources.log"
+          if ! ./gradlew --no-daemon --console=plain --stacktrace --info :app:processDebugResources 2>&1 | tee "$log_file"; then
+            summary="$(grep -E '^(e: |ERROR:|FAILURE:|\\* What went wrong:|Execution failed for task|Caused by:)' "$log_file" | tail -n 40 || true)"
+            if [ -z "$summary" ]; then
+              summary="$(tail -n 80 "$log_file")"
+            fi
+            summary="${summary//'%'/'%25'}"
+            summary="${summary//$'\n'/'%0A'}"
+            summary="${summary//$'\r'/'%0D'}"
+            echo "::error title=Process Android resources failed::$summary"
+            exit 1
+          fi
+
+      - name: Assemble Android debug APK
+        working-directory: android
+        run: |
+          set -euo pipefail
+          mkdir -p ci-logs
+          log_file="ci-logs/assemble-debug.log"
+          if ! ./gradlew --no-daemon --console=plain --stacktrace --info :app:assembleDebug 2>&1 | tee "$log_file"; then
+            summary="$(grep -E '^(e: |ERROR:|FAILURE:|\\* What went wrong:|Execution failed for task|Caused by:)' "$log_file" | tail -n 40 || true)"
+            if [ -z "$summary" ]; then
+              summary="$(tail -n 80 "$log_file")"
+            fi
+            summary="${summary//'%'/'%25'}"
+            summary="${summary//$'\n'/'%0A'}"
+            summary="${summary//$'\r'/'%0D'}"
+            echo "::error title=Assemble Android debug APK failed::$summary"
+            exit 1
+          fi
 
       - name: Rename APK artifact
         run: |
           mkdir -p artifacts
           cp android/app/build/outputs/apk/debug/app-debug.apk artifacts/memos-android-debug.apk
+
+      - name: Upload Android diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: memos-android-diagnostics
+          path: |
+            android/ci-logs
+            android/app/build/reports
+            android/build/reports
+          if-no-files-found: warn
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
       - name: Upload installable debug APK
         uses: actions/upload-artifact@v4
