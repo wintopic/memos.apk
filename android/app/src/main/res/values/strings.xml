@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="app_name">Memos</string>
+  <string name="action_retry">Retry</string>
+  <string name="loading_starting">Starting local Memos service...</string>
+  <string name="error_missing_bindings">Go bindings are missing. Run the Android binding build script first.</string>
+  <string name="error_server_timeout">Timed out while waiting for the local Memos server.</string>
+  <string name="error_unknown">Failed to start Memos.</string>
+  <string name="error_http">Memos returned HTTP %1$d.</string>
+</resources>

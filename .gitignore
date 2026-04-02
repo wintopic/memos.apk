@@ -1,0 +1,34 @@
+# temp folder
+tmp
+
+# Frontend asset
+web/dist
+
+# Build artifacts
+build/
+bin/
+memos
+
+# Plan/design documents
+docs/plans/
+
+.DS_Store
+
+# Jetbrains
+.idea
+
+# Docker Compose Environment File
+.env
+
+dist
+android/.gradle/
+android/build/
+android/app/build/
+android/app/libs/*.aar
+android/local.properties
+
+# VSCode settings
+.vscode
+
+# Git worktrees
+.worktrees/
