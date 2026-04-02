@@ -82,8 +82,8 @@ class MainActivity : AppCompatActivity() {
     }
     binding.webView.apply {
       stopLoading()
-      webChromeClient = null
-      webViewClient = null
+      webChromeClient = WebChromeClient()
+      webViewClient = WebViewClient()
       destroy()
     }
     super.onDestroy()
